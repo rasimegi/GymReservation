@@ -1,21 +1,57 @@
-<<<<<<< HEAD
 # GymReservation
 A mobile app for reserving gym slots, built with Flutter and Firebase.
-=======
-# gym_reservation
 
-A new Flutter project.
+## Randevu Bildirimleri
 
-## Getting Started
+Uygulama, kullanıcıların randevularından 1 gün önce hatırlatma bildirimleri gösterir. Bildirimler, uygulama kapalı olsa bile çalışır.
 
-This project is a starting point for a Flutter application.
+### Kurulum
 
-A few resources to get you started if this is your first Flutter project:
+1. Gerekli paketleri ekleyin:
+```yaml
+# Sadece örnek, uygulamada bu kodu kullanmayın
+dependencies:
+  flutter_local_notifications: ^16.2.0
+  timezone: ^0.9.2
+  workmanager: ^0.5.2
+  flutter_native_timezone: ^2.0.0
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+2. Paketleri yükleyin:
+```bash
+# Sadece örnek, terminalde çalıştırılacak komut
+flutter pub get
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
->>>>>>> 994461a (İlk commit - GymReservation projesi yüklendi)
+3. Bildirim servisini kullanmak için:
+<!-- 
+```dart
+// main.dart dosyasında
+final notificationService = NotificationService();
+await notificationService.initialize()
+```
+-->
+
+Bildirim servisini main.dart dosyasında initialize edin.
+
+### Randevu Bildirimi Zamanlama
+
+Bir randevu oluşturulduğunda otomatik olarak bildirim zamanlanır:
+
+<!-- 
+```dart
+// Örnek kullanım
+final notificationService = NotificationService();
+await notificationService.scheduleAppointmentNotification(
+  1,  // Bildirim ID'si
+  'Yarın Randevunuz Var!',  // Bildirim başlığı
+  'Randevu bilgileri...',  // Bildirim içeriği
+  DateTime.now().add(Duration(days: 1)),  // Randevu tarihi ve saati
+  {'gymName': 'Spor Salonu', 'serviceName': 'PT Seansı'},  // Randevu verileri
+);
+```
+-->
+
+### Arka Planda Çalışma
+
+Uygulama, workmanager paketi sayesinde arka planda periyodik olarak çalışır ve yaklaşan randevuları kontrol eder. Bu sayede kullanıcılar, randevularından 1 gün önce bildirim alır.

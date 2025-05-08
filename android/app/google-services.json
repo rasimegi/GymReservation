@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357917127166",
+    "project_id": "voya-gym",
+    "storage_bucket": "voya-gym.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357917127166:android:5feb78d95f33a8036890af",
+        "android_client_info": {
+          "package_name": "com.example.gym_reservation"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0b0_MjUeRlBkMKnDbE4sL0A_jAB1eqAg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

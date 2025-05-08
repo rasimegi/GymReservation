@@ -2,25 +2,15 @@ class UserModel {
   final String uid;
   final String email;
   final String username;
-  final String? fullName;
-  final String? phoneNumber;
-  final String? profileImageUrl;
-  final DateTime? birthDate;
-  final String? gender;
-  
-  // İsteğe bağlı ek bilgiler
-  final Map<String, dynamic>? additionalInfo;
+  final String? name;
+  final String? surname;
 
   UserModel({
     required this.uid,
     required this.email,
     required this.username,
-    this.fullName,
-    this.phoneNumber,
-    this.profileImageUrl,
-    this.birthDate,
-    this.gender,
-    this.additionalInfo,
+    this.name,
+    this.surname,
   });
 
   // Firestore'dan gelen verilerle UserModel oluştur
@@ -29,14 +19,8 @@ class UserModel {
       uid: id,
       email: data['email'] ?? '',
       username: data['username'] ?? '',
-      fullName: data['fullName'],
-      phoneNumber: data['phoneNumber'],
-      profileImageUrl: data['profileImageUrl'],
-      birthDate: data['birthDate'] != null 
-          ? (data['birthDate'] as Timestamp).toDate() 
-          : null,
-      gender: data['gender'],
-      additionalInfo: data['additionalInfo'],
+      name: data['name'],
+      surname: data['surname'],
     );
   }
 
@@ -45,36 +29,24 @@ class UserModel {
     return {
       'email': email,
       'username': username,
-      'fullName': fullName,
-      'phoneNumber': phoneNumber,
-      'profileImageUrl': profileImageUrl,
-      'birthDate': birthDate,
-      'gender': gender,
-      'additionalInfo': additionalInfo,
+      'name': name,
+      'surname': surname,
     };
   }
-  
+
   // Güncellenmiş UserModel kopyası oluştur
   UserModel copyWith({
     String? email,
     String? username,
-    String? fullName,
-    String? phoneNumber,
-    String? profileImageUrl,
-    DateTime? birthDate,
-    String? gender,
-    Map<String, dynamic>? additionalInfo,
+    String? name,
+    String? surname,
   }) {
     return UserModel(
       uid: this.uid,
       email: email ?? this.email,
       username: username ?? this.username,
-      fullName: fullName ?? this.fullName,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      birthDate: birthDate ?? this.birthDate,
-      gender: gender ?? this.gender,
-      additionalInfo: additionalInfo ?? this.additionalInfo,
+      name: name ?? this.name,
+      surname: surname ?? this.surname,
     );
   }
 }
@@ -83,17 +55,17 @@ class UserModel {
 class Timestamp {
   final int seconds;
   final int nanoseconds;
-  
+
   Timestamp(this.seconds, this.nanoseconds);
-  
+
   DateTime toDate() {
     return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
   }
-  
+
   static Timestamp fromDate(DateTime date) {
     final int milliseconds = date.millisecondsSinceEpoch;
     final int seconds = milliseconds ~/ 1000;
     final int nanoseconds = (milliseconds % 1000) * 1000000;
     return Timestamp(seconds, nanoseconds);
   }
-} 
+}

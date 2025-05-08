@@ -4,6 +4,8 @@ import 'package:gym_reservation/view/profile_screen.dart';
 import 'package:gym_reservation/view/home_screen.dart';
 import 'package:gym_reservation/services/timer_service.dart';
 import 'package:gym_reservation/utils/page_transition.dart';
+import 'package:gym_reservation/firebase/providers/reservation_provider.dart';
+import 'package:gym_reservation/firebase/services/firebase_service.dart';
 
 class ReservationScreen extends StatefulWidget {
   const ReservationScreen({Key? key}) : super(key: key);
@@ -23,8 +25,16 @@ class _ReservationScreenState extends State<ReservationScreen>
   final Map<String, String> _appointments = {};
   String? _selectedTime;
 
+  // Firebase servisleri
+  final FirebaseService _firebaseService = FirebaseService();
+  final ReservationProvider _reservationProvider = ReservationProvider();
+  String? _currentUserId;
+  bool _isLoading = false;
+
   // Saat aralıkları
   final List<String> _timeSlots = [
+    '07:00-08:00',
+    '08:00-09:00',
     '09:00-10:00',
     '10:00-11:00',
     '11:00-12:00',
@@ -51,6 +61,12 @@ class _ReservationScreenState extends State<ReservationScreen>
     _currentMonth = _selectedDate.month;
     _currentYear = _selectedDate.year;
     _generateCalendarDays();
+
+    // Test kullanıcısıyla giriş yapmayı dene
+    _testLogin();
+
+    // Giriş yapmış kullanıcıyı al
+    _getCurrentUser();
 
     // Timer güncellendiğinde setState çağrısı yapılacak
     _timerService.onTimerUpdate = () {
@@ -173,194 +189,347 @@ class _ReservationScreenState extends State<ReservationScreen>
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: const Color(0xFF0B0E14),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    // Kullanıcı giriş yapmamışsa uyarı göster
+    if (_currentUserId == null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1C1F26),
+            title: Row(
               children: [
-                const Text(
-                  'Randevu Saati Seçin',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.amber,
+                  size: 28,
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  height: 250,
-                  width: double.maxFinite,
-                  child: StatefulBuilder(
-                    builder: (context, setDialogState) {
-                      return GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 1,
-                              childAspectRatio: 5.0,
-                              mainAxisSpacing: 8,
-                            ),
-                        itemCount: _timeSlots.length,
-                        itemBuilder: (context, index) {
-                          final timeSlot = _timeSlots[index];
-                          final isSelected = timeSlot == localSelectedTime;
-                          final isBooked =
-                              _appointments.entries
-                                  .where(
-                                    (entry) =>
-                                        entry.value == timeSlot &&
-                                        entry.key == _formatDate(selectedDate),
-                                  )
-                                  .isNotEmpty;
-
-                          return GestureDetector(
-                            onTap:
-                                isBooked
-                                    ? null
-                                    : () {
-                                      setDialogState(() {
-                                        localSelectedTime = timeSlot;
-                                      });
-                                    },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color:
-                                    isSelected
-                                        ? const Color(0xFF339DFF)
-                                        : const Color(0xFF1C1F26),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    isBooked
-                                        ? Border.all(
-                                          color: Colors.red.withOpacity(0.5),
-                                          width: 1.5,
-                                        )
-                                        : isSelected
-                                        ? null
-                                        : Border.all(
-                                          color: Colors.white.withOpacity(0.3),
-                                          width: 1.5,
-                                        ),
-                                boxShadow:
-                                    isSelected
-                                        ? [
-                                          BoxShadow(
-                                            color: const Color(
-                                              0xFF339DFF,
-                                            ).withOpacity(0.3),
-                                            blurRadius: 8,
-                                            spreadRadius: 1,
-                                          ),
-                                        ]
-                                        : null,
-                              ),
-                              child: Center(
-                                child:
-                                    isBooked
-                                        ? Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              timeSlot,
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(
-                                                  0.5,
-                                                ),
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            const Text(
-                                              'Dolu',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                        : Text(
-                                          timeSlot,
-                                          style: TextStyle(
-                                            color:
-                                                isSelected
-                                                    ? Colors.white
-                                                    : Colors.white.withOpacity(
-                                                      0.8,
-                                                    ),
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.w500,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFBFC6D2),
-                      ),
-                      child: const Text('İptal'),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF339DFF),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                      ),
-                      onPressed: () {
-                        if (localSelectedTime != null) {
-                          setState(() {
-                            _selectedTime = localSelectedTime;
-                            _appointments[_formatDate(selectedDate)] =
-                                localSelectedTime!;
-                          });
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text(
-                        'Randevu Oluştur',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(width: 10),
+                const Text('Uyarı', style: TextStyle(color: Colors.white)),
               ],
             ),
-          ),
-        );
-      },
-    );
+            content: const Text(
+              'Rezervasyon yapabilmek için giriş yapmalısınız.',
+              style: TextStyle(color: Color(0xFFBFC6D2)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF339DFF),
+                ),
+                child: const Text('Tamam'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    // Formatlanmış tarih
+    final formattedDate = _formatDate(selectedDate);
+
+    // Önce bu tarihteki mevcut rezervasyon durumunu kontrol edelim
+    setState(() {
+      _isLoading = true;
+    });
+
+    _reservationProvider
+        .fetchReservedTimeSlots(formattedDate)
+        .then((_) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          // Şimdi rezervasyon durumuyla birlikte zaman seçim diyaloğunu göster
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return Dialog(
+                    backgroundColor: const Color(0xFF1C1F26),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                color: Color(0xFF339DFF),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Saat Seçin - ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Lütfen randevu için bir saat aralığı seçin. Her saat dilimini en fazla 3 kişi seçebilir.',
+                            style: TextStyle(color: Color(0xFFBFC6D2)),
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(context).size.height * 0.5,
+                            ),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children:
+                                    _timeSlots.map((timeSlot) {
+                                      // Zaman diliminin dolu olup olmadığını kontrol et
+                                      final isReserved = _reservationProvider
+                                          .reservedTimeSlots
+                                          .contains(timeSlot);
+
+                                      // Zaman dilimini seçin
+                                      return Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              localSelectedTime == timeSlot
+                                                  ? const Color(
+                                                    0xFF339DFF,
+                                                  ).withOpacity(0.2)
+                                                  : isReserved
+                                                  ? const Color(0xFF444444)
+                                                  : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color:
+                                                localSelectedTime == timeSlot
+                                                    ? const Color(0xFF339DFF)
+                                                    : isReserved
+                                                    ? Colors.red.withOpacity(
+                                                      0.5,
+                                                    )
+                                                    : Colors.white.withOpacity(
+                                                      0.3,
+                                                    ),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: ListTile(
+                                          title: Text(
+                                            timeSlot,
+                                            style: TextStyle(
+                                              color:
+                                                  localSelectedTime == timeSlot
+                                                      ? const Color(0xFF339DFF)
+                                                      : isReserved
+                                                      ? Colors.grey
+                                                      : Colors.white,
+                                              fontWeight:
+                                                  localSelectedTime == timeSlot
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                            ),
+                                          ),
+                                          trailing:
+                                              isReserved
+                                                  ? const Chip(
+                                                    label: Text(
+                                                      'Dolu',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                    labelPadding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 0,
+                                                        ),
+                                                  )
+                                                  : const Icon(
+                                                    Icons.access_time,
+                                                    color: Color(0xFF339DFF),
+                                                  ),
+                                          enabled: !isReserved,
+                                          onTap:
+                                              isReserved
+                                                  ? null
+                                                  : () {
+                                                    setDialogState(() {
+                                                      localSelectedTime =
+                                                          timeSlot;
+                                                    });
+                                                  },
+                                        ),
+                                      );
+                                    }).toList(),
+                              ),
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFBFC6D2),
+                                ),
+                                child: const Text('İptal'),
+                              ),
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF339DFF),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (localSelectedTime != null) {
+                                    Navigator.pop(context);
+
+                                    // Yükleniyor göstergesi
+                                    setState(() {
+                                      _isLoading = true;
+                                    });
+
+                                    // Tarih formatını hazırla
+                                    final formattedDate = _formatDate(
+                                      selectedDate,
+                                    );
+
+                                    print(
+                                      "Rezervasyon oluşturuluyor... Tarih: $formattedDate, Saat: $localSelectedTime",
+                                    );
+
+                                    // Firebase üzerinden rezervasyon oluştur
+                                    if (_currentUserId != null) {
+                                      final result = await _reservationProvider
+                                          .createReservation(
+                                            userId: _currentUserId!,
+                                            date: formattedDate,
+                                            timeSlot: localSelectedTime!,
+                                          );
+
+                                      print(
+                                        "Rezervasyon oluşturma sonucu: $result",
+                                      );
+
+                                      if (result) {
+                                        // Başarılı ise yerel Map'i güncelle
+                                        await _reservationProvider
+                                            .fetchUserReservations(
+                                              _currentUserId!,
+                                            );
+
+                                        // Rezerve edilmiş zaman dilimlerini güncelle
+                                        await _reservationProvider
+                                            .fetchReservedTimeSlots(
+                                              formattedDate,
+                                            );
+
+                                        // Yerel map'i güncelle
+                                        _updateLocalAppointments();
+
+                                        // Rezervasyonu manuel olarak ekle (yenileme sorunu için)
+                                        setState(() {
+                                          _appointments[formattedDate] =
+                                              localSelectedTime!;
+                                        });
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Rezervasyonunuz başarıyla oluşturuldu',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      } else {
+                                        // Hata varsa uyarı göster
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              _reservationProvider
+                                                      .errorMessage ??
+                                                  'Rezervasyon oluşturulamadı',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Giriş yapmadığınız için rezervasyon yapamazsınız',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                },
+                                child: const Text(
+                                  'Randevu Oluştur',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        })
+        .catchError((error) {
+          setState(() {
+            _isLoading = false;
+          });
+          // Hata durumunda uyarı göster
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Rezervasyonlar yüklenirken hata: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
   }
 
   void _generateCalendarDays() {
@@ -417,6 +586,165 @@ class _ReservationScreenState extends State<ReservationScreen>
       }
       _generateCalendarDays();
     });
+  }
+
+  // Kullanıcıyı al ve rezervasyonları yükle
+  Future<void> _getCurrentUser() async {
+    print("_getCurrentUser başlatılıyor...");
+
+    final currentUser = _firebaseService.currentUser;
+    print("Mevcut kullanıcı: ${currentUser?.uid ?? 'Giriş yapılmamış'}");
+
+    if (currentUser != null) {
+      setState(() {
+        _currentUserId = currentUser.uid;
+        _isLoading = true;
+      });
+      print("Kullanıcı ID: $_currentUserId");
+
+      // Kullanıcının rezervasyonlarını getir
+      print("Kullanıcı rezervasyonları alınıyor...");
+      await _reservationProvider.fetchUserReservations(_currentUserId!);
+      print(
+        "Rezervasyon sayısı: ${_reservationProvider.userReservations.length}",
+      );
+
+      // Lokal Map'i güncelle
+      _updateLocalAppointments();
+      print("Lokal appointment sayısı: ${_appointments.length}");
+
+      setState(() {
+        _isLoading = false;
+      });
+    } else {
+      print("HATA: Kullanıcı giriş yapmamış!");
+      // Test için dummy veri oluştur
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Giriş yapmadığınız için rezervasyon yapamazsınız.',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Firebase'den gelen rezervasyonları yerel Map'e aktar
+  void _updateLocalAppointments() {
+    print("_updateLocalAppointments başlatılıyor...");
+    print("Önceki rezervasyon sayısı: ${_appointments.length}");
+
+    // Önce Map'i temizle
+    _appointments.clear();
+
+    // Yeni rezervasyonları ekle
+    for (var reservation in _reservationProvider.userReservations) {
+      print(
+        "İşlenen rezervasyon: ${reservation.date} ${reservation.timeSlot} (Aktif: ${reservation.isActive})",
+      );
+
+      if (reservation.isActive) {
+        // Sadece aktif rezervasyonları göster
+        _appointments[reservation.date] = reservation.timeSlot;
+        print(
+          "Rezervasyon eklendi: ${reservation.date} -> ${reservation.timeSlot}",
+        );
+      }
+    }
+
+    print("Güncellenmiş rezervasyon sayısı: ${_appointments.length}");
+    print("Appointments içeriği: $_appointments");
+
+    // UI'ı güncelle
+    setState(() {});
+  }
+
+  void _showCancelConfirmationDialog(
+    BuildContext context,
+    String reservationId,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1C1F26),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.amber,
+                size: 28,
+              ),
+              const SizedBox(width: 10),
+              const Text('Uyarı', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+          content: const Text(
+            'Bu rezervasyonu tamamen silmek istediğinize emin misiniz?',
+            style: TextStyle(color: Color(0xFFBFC6D2)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF339DFF),
+              ),
+              child: const Text('İptal'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+
+                setState(() {
+                  _isLoading = true;
+                });
+
+                // Rezervasyonu tamamen sil
+                if (_currentUserId != null) {
+                  await _reservationProvider.deleteReservation(
+                    userId: _currentUserId!,
+                    reservationId: reservationId,
+                  );
+
+                  // Rezervasyon listesini güncelle
+                  _updateLocalAppointments();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Rezervasyonunuz silindi'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+
+                setState(() {
+                  _isLoading = false;
+                });
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Sil'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Test kullanıcısıyla giriş yapma
+  Future<void> _testLogin() async {
+    try {
+      print("Test kullanıcısıyla giriş deneniyor...");
+      final result = await _firebaseService.signInWithEmailAndPassword(
+        email: "test@test.com",
+        password: "123456",
+      );
+      print("Test giriş başarılı: ${result.user?.uid}");
+    } catch (e) {
+      print("Test giriş başarısız: $e");
+    }
   }
 
   @override
@@ -630,9 +958,51 @@ class _ReservationScreenState extends State<ReservationScreen>
                     color: Colors.white,
                   ),
                 ),
-                const Text(
-                  'Tüm randevularınızı aşağıda görebilirsiniz',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFBFC6D2)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Tüm randevularınızı aşağıda görebilirsiniz',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFBFC6D2)),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: Color(0xFF339DFF),
+                        size: 20,
+                      ),
+                      onPressed: () async {
+                        // Yükleniyor göstergesi göster
+                        setState(() {
+                          _isLoading = true;
+                        });
+
+                        if (_currentUserId != null) {
+                          // Rezervasyonları yeniden yükle
+                          await _reservationProvider.fetchUserReservations(
+                            _currentUserId!,
+                          );
+
+                          // Lokal map'i güncelle
+                          _updateLocalAppointments();
+
+                          // Bildirimi göster
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Rezervasyonlar yenilendi'),
+                              backgroundColor: Color(0xFF339DFF),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+
+                        // Yükleniyor göstergesini kapat
+                        setState(() {
+                          _isLoading = false;
+                        });
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 if (_appointments.isEmpty)
@@ -661,104 +1031,128 @@ class _ReservationScreenState extends State<ReservationScreen>
                         ),
                       ],
                     ),
-                    child: ShaderMask(
-                      shaderCallback: (Rect rect) {
-                        return const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xFF1C1F26),
-                            Colors.transparent,
-                            Colors.transparent,
-                            Color(0xFF1C1F26),
-                          ],
-                          stops: [0.0, 0.05, 0.95, 1.0],
-                        ).createShader(rect);
-                      },
-                      blendMode: BlendMode.dstOut,
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(right: 5),
-                        itemCount: _appointments.length,
-                        itemBuilder: (context, index) {
-                          final date = _appointments.keys.elementAt(index);
-                          final time = _appointments[date];
-                          final dateObj = DateTime.parse(date);
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0B0E14),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    spreadRadius: 0,
-                                  ),
-                                ],
+                    child:
+                        _isLoading
+                            ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF339DFF),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF339DFF,
-                                      ).withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.fitness_center,
-                                      color: Color(0xFF339DFF),
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Fitness Seans',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                            )
+                            : ShaderMask(
+                              shaderCallback: (Rect rect) {
+                                return const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0xFF1C1F26),
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                    Color(0xFF1C1F26),
+                                  ],
+                                  stops: [0.0, 0.05, 0.95, 1.0],
+                                ).createShader(rect);
+                              },
+                              blendMode: BlendMode.dstOut,
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(right: 5),
+                                itemCount:
+                                    _reservationProvider
+                                        .userReservations
+                                        .length,
+                                itemBuilder: (context, index) {
+                                  final reservation =
+                                      _reservationProvider
+                                          .userReservations[index];
+                                  // Sadece aktif rezervasyonları göster
+                                  if (!reservation.isActive)
+                                    return const SizedBox.shrink();
+
+                                  // Tarih formatını ayarla
+                                  final dateObj = DateTime.parse(
+                                    reservation.date,
+                                  );
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0B0E14),
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.1,
+                                            ),
+                                            blurRadius: 4,
+                                            spreadRadius: 0,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${DateFormat('d MMMM y', 'tr_TR').format(dateObj)} · $time',
-                                          style: const TextStyle(
-                                            color: Color(0xFFBFC6D2),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF339DFF,
+                                              ).withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(
+                                              Icons.fitness_center,
+                                              color: Color(0xFF339DFF),
+                                              size: 20,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Fitness Seans',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${DateFormat('d MMMM y', 'tr_TR').format(dateObj)} · ${reservation.timeSlot}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFBFC6D2),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () {
+                                              // Silme onayı iste
+                                              _showCancelConfirmationDialog(
+                                                context,
+                                                reservation.reservationId ??
+                                                    '${reservation.date}_${reservation.timeSlot}',
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _appointments.remove(date);
-                                      });
-                                    },
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
                   ),
               ],
             ),
